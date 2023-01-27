@@ -1,133 +1,91 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": 2,
-   "id": "28760a6e",
-   "metadata": {},
-   "outputs": [
-    {
-     "name": "stdout",
-     "output_type": "stream",
-     "text": [
-      "Output von der Prediction: tensor(0.1428, grad_fn=<MeanBackward0>)\n"
-     ]
-    }
-   ],
-   "source": [
-    "import torch\n",
-    "import torch.nn as nn\n",
-    "import re\n",
-    "from torch.nn.utils.rnn import pad_sequence\n",
-    "import numpy as np\n",
-    "\n",
-    "# Load state_dict from linear predictor model\n",
-    "state_dict = torch.load('linear_predictor_L14_MSE.pth', map_location=torch.device('cpu'))\n",
-    "\n",
-    "# Extract vocabulary size, embedding size, and number of classes from state_dict\n",
-    "vocab_size = state_dict['layers.0.weight'].size(0)\n",
-    "embedding_size = state_dict['layers.0.weight'].size(1)\n",
-    "num_classes = state_dict['layers.2.weight'].size(1)\n",
-    "\n",
-    "# Define input, hidden, and output sizes for the model\n",
-    "input_size = vocab_size\n",
-    "hidden_size = embedding_size\n",
-    "output_size = num_classes\n",
-    "\n",
-    "# Define the model\n",
-    "class MyModel(nn.Module):\n",
-    "    def __init__(self, input_size, hidden_size, output_size):\n",
-    "        super(MyModel, self).__init__()\n",
-    "        self.fc1 = nn.Linear(input_size, hidden_size)\n",
-    "        self.relu = nn.ReLU()\n",
-    "        self.fc2 = nn.Linear(hidden_size, output_size)\n",
-    "\n",
-    "    def forward(self, x):\n",
-    "        x = self.fc1(x)\n",
-    "        x = self.relu(x)\n",
-    "        x = self.fc2(x)\n",
-    "        return x\n",
-    "\n",
-    "# Create an instance of the model\n",
-    "model = MyModel(input_size, hidden_size, output_size)\n",
-    "\n",
-    "# Load the state_dict into the model\n",
-    "state_dict_new = model.state_dict()\n",
-    "for k, v in state_dict.items():\n",
-    "    if k in state_dict_new:\n",
-    "        state_dict_new[k] = v\n",
-    "\n",
-    "model.load_state_dict(state_dict_new)\n",
-    "model.eval()\n",
-    "\n",
-    "# Extract the weights and bias of the first and second linear layers\n",
-    "weights_1 = model.state_dict()['fc1.weight']\n",
-    "weights_2 = model.state_dict()['fc2.weight']\n",
-    "bias_1 = model.state_dict()['fc1.bias']\n",
-    "bias_2 = model.state_dict()['fc2.bias']\n",
-    "\n",
-    "\n",
-    "# Tokenize input text\n",
-    "def tokenize(text):\n",
-    "    text = re.sub(r'[^a-zA-Z]+', ' ', text)\n",
-    "    text = text.lower()\n",
-    "    tokens = text.split()\n",
-    "\n",
-    "    return tokens\n",
-    "\n",
-    "# Tokenize test data\n",
-    "test_data = [\"Im a sentence\"] \n",
-    "test_data_tokens = [tokenize(text) for text in test_data]\n",
-    "\n",
-    "# Create a vocabulary and index it\n",
-    "vocab = set([token for tokens in test_data_tokens for token in tokens])\n",
-    "vocab_index = {token: i for i, token in enumerate(vocab)}\n",
-    "\n",
-    "# Replace tokens with their indexed values\n",
-    "test_data_tokens_indexed = [[vocab_index[token] for token in tokens] for tokens in test_data_tokens]\n",
-    "\n",
-    "# Determine the maximum length of the tokenized inputs\n",
-    "max_len = max(len(tokens) for tokens in test_data_tokens_indexed)\n",
-    "test_data_tokens_indexed = [torch.tensor(tokens) for tokens in test_data_tokens_indexed]\n",
-    "\n",
-    "for i, tokens in enumerate(test_data_tokens_indexed):\n",
-    "  num_padding = max_len - len(tokens)\n",
-    "  padding = torch.zeros(num_padding, dtype=torch.long)\n",
-    "  test_data_tokens_indexed[i] = torch.cat((tokens, padding))\n",
-    "\n",
-    "test_data_tokens_indexed_tensor = torch.stack(test_data_tokens_indexed)\n",
-    "weights_1_shape = model.state_dict()['fc1.weight'].shape\n",
-    "\n",
-    "X = torch.zeros(len(test_data_tokens_indexed_tensor), weights_1_shape[1]).type_as(weights_1)\n",
-    "\n",
-    "predictions = model(X)\n",
-    "predictions = torch.abs(predictions)\n",
-    "predictions = torch.sqrt(predictions)\n",
-    "\n",
-    "output_mean = torch.mean(predictions)\n",
-    "print(\"Output von der Prediction:\", output_mean)\n"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python 3 (ipykernel)",
-   "language": "python",
-   "name": "python3"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.9.13"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
-}
+import torch
+import torch.nn as nn
+import re
+from torch.nn.utils.rnn import pad_sequence
+import numpy as np
+
+# Load state_dict from linear predictor model
+state_dict = torch.load('linear_predictor_L14_MSE.pth', map_location=torch.device('cpu'))
+
+# Extract vocabulary size, embedding size, and number of classes from state_dict
+vocab_size = state_dict['layers.0.weight'].size(0)
+embedding_size = state_dict['layers.0.weight'].size(1)
+num_classes = state_dict['layers.2.weight'].size(1)
+
+# Define input, hidden, and output sizes for the model
+input_size = vocab_size
+hidden_size = embedding_size
+output_size = num_classes
+
+# Define the model
+class MyModel(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(MyModel, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        return x
+
+# Create an instance of the model
+model = MyModel(input_size, hidden_size, output_size)
+
+# Load the state_dict into the model
+state_dict_new = model.state_dict()
+for k, v in state_dict.items():
+    if k in state_dict_new:
+        state_dict_new[k] = v
+
+model.load_state_dict(state_dict_new)
+model.eval()
+
+# Extract the weights and bias of the first and second linear layers
+weights_1 = model.state_dict()['fc1.weight']
+weights_2 = model.state_dict()['fc2.weight']
+bias_1 = model.state_dict()['fc1.bias']
+bias_2 = model.state_dict()['fc2.bias']
+
+
+# Tokenize input text
+def tokenize(text):
+    text = re.sub(r'[^a-zA-Z]+', ' ', text)
+    text = text.lower()
+    tokens = text.split()
+
+    return tokens
+
+# Tokenize test data
+test_data = ["Im a sentence"] 
+test_data_tokens = [tokenize(text) for text in test_data]
+
+# Create a vocabulary and index it
+vocab = set([token for tokens in test_data_tokens for token in tokens])
+vocab_index = {token: i for i, token in enumerate(vocab)}
+
+# Replace tokens with their indexed values
+test_data_tokens_indexed = [[vocab_index[token] for token in tokens] for tokens in test_data_tokens]
+
+# Determine the maximum length of the tokenized inputs
+max_len = max(len(tokens) for tokens in test_data_tokens_indexed)
+test_data_tokens_indexed = [torch.tensor(tokens) for tokens in test_data_tokens_indexed]
+
+for i, tokens in enumerate(test_data_tokens_indexed):
+  num_padding = max_len - len(tokens)
+  padding = torch.zeros(num_padding, dtype=torch.long)
+  test_data_tokens_indexed[i] = torch.cat((tokens, padding))
+
+test_data_tokens_indexed_tensor = torch.stack(test_data_tokens_indexed)
+weights_1_shape = model.state_dict()['fc1.weight'].shape
+
+X = torch.zeros(len(test_data_tokens_indexed_tensor), weights_1_shape[1]).type_as(weights_1)
+
+predictions = model(X)
+predictions = torch.abs(predictions)
+predictions = torch.sqrt(predictions)
+
+output_mean = torch.mean(predictions)
+print("Output von der Prediction:", output_mean)
